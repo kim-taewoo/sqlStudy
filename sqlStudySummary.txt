@@ -1,0 +1,156 @@
+﻿<시작/종료>
+sqlite3 the_database.db
+.exit
+
+<View mode>
+.header on
+.mode column
+
+<Importing data into SQLite on Windows>
+// 아래와 처럼 미리 쓰여진 sql 문을 적용시키거나
+sqlite3 the_database.db < create_actions.sql
+// 직접 sql 문을 써서 table을 만들 수 있다.
+CREATE TABLE user_actions(name TEXT, product TEXT, action TEXT, price REAL);
+// 그 후에 데이터를 가져와서 넣는다.
+.mode csv
+.import small_actions.csv user_actions
+// . 먼저 찍는 명령어들은 뒤에 세미콜론 안 붙음에 주의!
+
+<Basic selection>
+
+select * from user_actions;
+select * from user_actions where action = 'addtocart';
+select name, product from user_actions where action = 'addtocart';
+SELECT * FROM user_actions limit 3;
+// Combine conditions: AND, OR 
+// Comparison operators: =, !=, <, >
+// Comparison for NULL: IS, IS NOT (IS NULL)
+SELECT * FROM user_actions WHERE product = 'Mango' AND action = 'addtocart';
+SELECT * from user_actions WHERE created_at < datetime("now");
+<Creating a table>
+
+CREATE TABLE table_name(
+	column_name1 TYPE,
+	column_name2 TYPE,
+);
+
+// TYPES: TEXT(VARCHAR), INTEGER, REAL, BLOB, DATETIME/ DATE/ TIME
+
+
+<Modifying a table's structure>
+// "created_at" 이라는 컬럼을 만든다면,
+ALTER TABLE user_actions ADD COLUMN created_at DATETIME;
+// 조건부로 값을 넣어줄 수도 있다.
+update user_actions set created_at = datetime("2019-02-23 00:00:00") where name = 'Gina';
+// SQLite 에서는 컬럼을 지울수가 없다! 새로 만들어야 해...
+
+<Speeding things up with indexes>
+// index 종류
+// 1. Vanilla / plain index: Just make things easier to look up
+CREATE INDEX index_name ON table_name (column_name);
+// 2. Unique index: And force them to be unique(don't fit for everything.)
+CREATE UNIQUE INDEX index_name ON table_name (column_name);
+// 3. Composite index: i.e. an index on both(action, price) simultaneously.
+CREATE INDEX index_name ON table_name (column1, column2);
+
+// Primary Key 라는 특별한 index 가 있다.
+// 보통 아래와 같이 생성한다. 직접 쓰는 거 보니 optional 한 것처럼 보이지만, 거의 standard 니까 암기.
+CREATE TABLE users(
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	name TEXT,
+	email TEXT
+);
+
+<row Insertion>
+// 모든 컬럼 값을 가지고 있을 때:
+INSERT INTO table_name VALUES(?,?, ...);
+// 특정 컬럼만 채우고 싶을 때:
+INSERT INTO user_actions (name, product, action) VALUES('John','Mango','Purchase');
+<row Updating>
+UPDATE table_name SET column1=value1,column2=value2... WHERE condition;
+<row Deletion>
+DELETE FROM table_name WHERE condition;
+<Delete Table>
+DROP TABLE table_name;
+
+<Joining or Merging tables together)
+
+<Inner Join>
+SELECT name, product, location
+FROM user_actions
+INNER JOIN users
+ON user_actions.name = name;
+// inner join 을 하면 겹치지 않는 부분이 날아간다.
+
+<Outer Join>
+SELECT users.name, product, location
+FROM user_actions
+FULL OUTER JOIN users
+ON user_actions.name = users.name
+// RIGHT, LEFT OUTER JOIN 도 있음
+
+<Count>
+SELECT COUNT(*) FROM user_actions WHERE product = 'Mango';
+// * 은 Null 값도 세기 땜에, Null 이 없음을 확신한다면 column 이라고 써주는 게 속도가 훨씬 빠르다.
+
+<Distinct>
+SELECT COUNT(DISTINCT product) FROM user_actions;
+
+<SUM>
+SELECT SUM(price) FROM users_actions WHERE product = 'Mango' AND action = 'purchase';
+
+<AVG, MIN, MAX>
+SELECT AVG(price) FROM user_actions WHERE product = 'Mango';
+// 이런 식으로
+
+<Group by>
+// Find total revenue for each product
+// 위에서는 WHERE product = 'Mango' 처럼 하나씩 골랐지만 한 번에 모든 물품들 각각의 결과값을 보고 싶을 때.
+SELECT product, SUM(price) FROM user_actions WHERE action = 'purchase' GROUP BY product;
+
+<Sort>
+// Sort with the highest revenue first (내림차순)
+SELECT product, SUM(price) as total_revenue FROM user_actions WHERE action = 'purchase' GROUP BY product ORDER BY total_revenue desc;
+
+<Limit>
+SELECT product, SUM(price) as total_revenue FROM user_actions WHERE action = 'purchase' GROUP BY total_revenue desc LIMIT 3;
+
+<Funnels>
+// Focus on where there are larger drop-offs and work to improve the conversion rate at those points
+SELECT action, COUNT(*) FROM user_actions GROUP BY action;
+// 이렇게 했을 때 view => purchase => addtocart 라는 액션들 사이사이의 줄어드는 정도를 보고 어딜 공략해서 conversion rate 를 올릴 수 있을지 고민할 수 있다.
+
+<YOY Revenue> // Year On Year (전년대비, 연간)
+// 지금 가진 거에 date 가 없으니 python script 로 만들어 주자.
+// python generate_actions_dt.py
+CREATE TABLE user_actions_with_dt(name TEXT, product TEXT, action TEXT, price REAL, dt DATETIME);
+.mode csv
+.import dt_actions.csv user_actions_with_dt
+// 그런데 우리는 datetime 전부 필요없고 month 만 필요하다. 이걸 전처리하기 위해서 strftime 이라는 걸 사용한다.
+// strftime(output_format, datetime_object)
+// 위처럼 사용해서 새로운 month column 을 만들고 그걸 group by 한다.
+SELECT strftime('%Y-%m', dt) as month, SUM(price) as revenue FROM user_actions_with_dt GROUP BY month;
+
+<CSV Output> // csv 로 저장
+.mode csv
+.out outputfile.csv
+// 방금 쓴 쿼리.
+
+<Sort Sales by Location>
+SELECT COUNT() as sales, location FROM (SELECT product, location FROM user_actions INNER JOIN users ON user_actions.name = users.name) GROUP BY location ORDER BY sales DESC;
+// COUNT() 안에 arg 가 없음에 유의. <= * 이 있는 것과 없는 것의 차이가 뭐지?
+<tsv 파일 데이터 쓰기>
+.mode tabs
+.import data.tsv table_name
+// 파일 자체에 header 가 있어서 불러왔을 때 이상하면
+// 수동으로 delete row 해줘야 할 수도 있음
+
+<IN 으로 여러 조건 한 번에 넣어 비교하기 (리스트 같은 것)>
+SELECT * FROM user_actions WHERE name IN ('Gina','Carol','Alice');
+// 원래라면 일일이 OR 썼어야할지도 모르는 걸 한 방에 가능.
+<NOT IN 도 존재함!>
+
+<BETWEEN>
+SELECT * FROM ordered_items WHERE price > 100 AND price < 200;
+SELECT * FROM ordered_items WHERE price BETWEEN 100 AND 200;
+<NOT BETWeEN 도 존재!>

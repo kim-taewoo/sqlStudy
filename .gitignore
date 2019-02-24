@@ -1,3 +1,13 @@
 big*_actions.csv
+dt_actions.csv
+users.csv
 the_database.db
 *.pyc
+
+
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
